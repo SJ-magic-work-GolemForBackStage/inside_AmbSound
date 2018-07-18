@@ -21,8 +21,20 @@ private:
 		WINDOW_HEIGHT	= 150,
 	};
 	
+	enum STATE{
+		STATE_STOP,
+		STATE_PLAY,
+	};
+	
 	/****************************************
 	****************************************/
+	/********************
+	********************/
+	STATE State;
+	const float vol_max;
+	float vol_down_speed;
+	float vol_up_speed;
+	
 	/********************
 	********************/
 	vector<ofSoundPlayer*> Sounds;
@@ -41,6 +53,7 @@ private:
 	********************/
 	ofTrueTypeFont font;
 	float now;
+	float t_LastUpdate;
 	
 	/********************
 	********************/
@@ -53,6 +66,11 @@ private:
 	void load_music_table();
 	void prep_NextSoundInfo();
 	void PrintToBuf_musicTime(char* buf);
+	void StateChart();
+	void vol_down();
+	void vol_up();
+	void play();
+	void stop();
 	
 public:
 	/****************************************

@@ -28,10 +28,16 @@ ofApp::ofApp()
 , t_LastSound(0)
 , id(0)
 , Osc("127.0.0.1", 12348, 12349)
+, State(STATE_PLAY)
+, vol_max(1.0)
+, now(0)
 {
 	srand((unsigned int)time(NULL));
 	
 	font.load("font/RictyDiminished-Regular.ttf", 12, true, true, true);
+	
+	vol_down_speed	= (vol_max - 0) / 1.5; // 1.5secで
+	vol_up_speed	= (vol_max - 0) / 1.5;
 }
 
 /******************************
@@ -62,7 +68,7 @@ void ofApp::setup(){
 	********************/
 	ofSetBackgroundAuto(true);
 	
-	ofSetWindowTitle("inside:AmbientSound");
+	ofSetWindowTitle("Kinobi:AmbientSound");
 	ofSetVerticalSync(true);
 	ofSetFrameRate(60);
 	ofSetWindowShape(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -158,7 +164,7 @@ void ofApp::load_music_table()
 		Sounds[i]->loadSound(SoundFileNames[i]->c_str());
 		Sounds[i]->setLoop(false);
 		Sounds[i]->setMultiPlay(true);
-		Sounds[i]->setVolume(1.0);
+		Sounds[i]->setVolume(vol_max);
 		
 		printf("%3d:%s\n", i, SoundFileNames[i]->c_str());
 	}
@@ -181,7 +187,7 @@ void ofApp::load_and_start_backMusic()
 	********************/
 	backSound.setLoop(true);
 	backSound.setMultiPlay(true);
-	backSound.setVolume(1.0);
+	backSound.setVolume(vol_max);
 	
 	backSound.play();
 }
@@ -191,10 +197,16 @@ void ofApp::load_and_start_backMusic()
 void ofApp::prep_NextSoundInfo()
 {
 	d_interval = ofRandom(d_INTERVAL_MIN, d_INTERVAL_MAX);
+	
+	int LastId = id;
 	id = int ( ((double)rand() / ((double)RAND_MAX + 1)) * Sounds.size() );
 	if(Sounds.size() <= id){
 		WARNING_MSG();
 		id = 0;
+	}
+	if(id == LastId){
+		id++;
+		if(Sounds.size() <= id) id = 0;
 	}
 	
 	t_LastSound = ofGetElapsedTimef();
@@ -212,11 +224,6 @@ void ofApp::update(){
 	
 	ofSoundUpdate();
 	
-	if(d_interval < now - t_LastSound){
-		if(Sounds[id]->isLoaded()) Sounds[id]->play();
-		prep_NextSoundInfo();
-	}
-	
 	/********************
 	********************/
 	while(Osc.OscReceive.hasWaitingMessages()){
@@ -227,10 +234,98 @@ void ofApp::update(){
 			int dummy = m_receive.getArgAsInt32(0);
 			ofExit();
 			return;
+			
+		}else if(m_receive.getAddress() == "/Play"){
+			int dummy = m_receive.getArgAsInt32(0);
+			play();
+			
+		}else if(m_receive.getAddress() == "/Stop"){
+			int dummy = m_receive.getArgAsInt32(0);
+			stop();
+			
 		}
 	}
+	
+	/********************
+	********************/
+	StateChart();
+	
+	/********************
+	********************/
+	t_LastUpdate = now;
 }
 
+/******************************
+******************************/
+void ofApp::StateChart(){
+	switch(State){
+		case STATE_STOP:
+			vol_down();
+			if(backSound.getVolume() <= 0){
+				if(backSound.isPlaying()) backSound.stop();
+			}
+			break;
+			
+		case STATE_PLAY:
+			vol_up();
+			
+			if(d_interval < now - t_LastSound){
+				if(Sounds[id]->isLoaded()) Sounds[id]->play();
+				prep_NextSoundInfo();
+			}
+			break;
+	}
+}
+	
+/******************************
+******************************/
+void ofApp::vol_down(){
+	float LastVol = backSound.getVolume();
+	float vol = LastVol;
+	
+	vol -= vol_down_speed * (now - t_LastUpdate);
+	if(vol < 0) vol = 0;
+	if(vol_max < vol) vol = vol_max;
+	
+	if(vol != LastVol) backSound.setVolume(vol);
+}
+
+/******************************
+******************************/
+void ofApp::vol_up(){
+	float LastVol = backSound.getVolume();
+	float vol = LastVol;
+	
+	vol += vol_up_speed * (now - t_LastUpdate);
+	if(vol < 0) vol = 0;
+	if(vol_max < vol) vol = vol_max;
+	
+	if(vol != LastVol) backSound.setVolume(vol);
+}
+
+/******************************
+******************************/
+void ofApp::play(){
+	switch(State){
+		case STATE_STOP:
+			if(!backSound.isPlaying()) backSound.play();
+			backSound.setPaused(false);
+			prep_NextSoundInfo();
+			break;
+			
+		case STATE_PLAY:
+			break;
+	}
+	
+	State = STATE_PLAY;
+}
+	
+/******************************
+******************************/
+void ofApp::stop(){
+	State = STATE_STOP;
+}
+	
 //--------------------------------------------------------------
 void ofApp::draw(){
 	/********************
@@ -253,6 +348,16 @@ void ofApp::draw(){
 	point_y += ofs_y;
 	
 	PrintToBuf_musicTime(buf);
+	font.drawString(buf, point_x, point_y);
+	point_y += ofs_y;
+	
+	if(State == STATE_STOP)			sprintf(buf, "> STATE_STOP");
+	else if(State == STATE_PLAY)	sprintf(buf, "> STATE_PLAY");
+	else							sprintf(buf, "> STATE_xxx");
+	font.drawString(buf, point_x, point_y);
+	point_y += ofs_y;
+	
+	sprintf(buf, "> vol = %4.2f", backSound.getVolume());
 	font.drawString(buf, point_x, point_y);
 	point_y += ofs_y;
 }
