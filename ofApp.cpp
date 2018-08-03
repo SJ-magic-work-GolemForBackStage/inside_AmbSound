@@ -70,7 +70,7 @@ void ofApp::setup(){
 	
 	ofSetWindowTitle("Kinobi:AmbientSound");
 	ofSetVerticalSync(true);
-	ofSetFrameRate(60);
+	ofSetFrameRate(30);
 	ofSetWindowShape(WINDOW_WIDTH, WINDOW_HEIGHT);
 	ofSetEscapeQuitsApp(false);
 	
@@ -340,7 +340,8 @@ void ofApp::draw(){
 	const int ofs_y = 20;
 	
 	char buf[BUF_SIZE];
-	sprintf(buf, "> NextId=%3d: %7.2f [sec]", id, d_interval - (now - t_LastSound));
+	if(State == STATE_PLAY)	sprintf(buf, "> NextId=%3d: %7.2f [sec]", id, d_interval - (now - t_LastSound));
+	else					sprintf(buf, "> -----");
 	// point_x = ofGetWidth()/2 - font.stringWidth(buf)/2;
 	
 	// font.drawStringAsShapes(buf, WIDTH__GRAPH_TIMEBASED - 1 - font[FONT_S].stringWidth(buf) - 10, -y); // y posはマイナス
